@@ -1,7 +1,7 @@
-// config_alpha.js
+// yellow_vehicle_config.js
 import baseConfig from './sample_robot_config.js';
 
-const yellowVechileConfig = {
+const yellowVehicleConfig = {
   ...baseConfig,  // baseConfigをコピーして
   jointTopicName: "/AssembleRobot/joint_controller/command", // 上書き
   jointNames: ["LINK_0", "LINK_1", "LINK_2", "LINK_3", "LINK_4"],
@@ -10,4 +10,4 @@ const yellowVechileConfig = {
   initialAngularSpeed: 0.3
 };
 
-export default yellowVechileConfig;
+export default yellowVehicleConfig;

@@ -109,7 +109,7 @@
 
     <div class="speed-block">
       <label for="speed-angular">回転：</label>
-      <input type="number" id="speed-angular" >
+      <input type="number" id="speed-angular">
       <button id="dec-angular">−</button>
       <button id="inc-angular">＋</button>
     </div>
@@ -118,7 +118,6 @@
   <div id="sliders"></div>
 
   <script type="module">
-    // import config from './sample_robot_config.js';
     import config from './yellow_vehicle_config.js';
 
     const {
@@ -163,6 +162,31 @@
     setupSliders();
     setupSpeedControls();
     setupJoystick();
+
+    let twistBurstTimer = null;
+    let twistBurstCount = 0;
+    const TWIST_BURST_MAX = 10;      // 送信する回数
+    const TWIST_BURST_INTERVAL = 100; // ms間隔（10Hz）
+
+    function startTwistBurst() {
+      // 既存のタイマーがあればクリア
+      if (twistBurstTimer) {
+        clearInterval(twistBurstTimer);
+      }
+
+      twistBurstCount = 0;
+
+      // タイマー開始
+      twistBurstTimer = setInterval(() => {
+        publishTwist();
+        twistBurstCount++;
+
+        if (twistBurstCount >= TWIST_BURST_MAX) {
+          clearInterval(twistBurstTimer);
+          twistBurstTimer = null;
+        }
+      }, TWIST_BURST_INTERVAL);
+    }
 
     // === スライダーUIとイベントのセットアップ ===
     function setupSliders() {
@@ -217,7 +241,7 @@
       angularInput.min = angularMin;
       angularInput.max = angularMax;
       angularInput.step = angularStep;
-      
+
       linearInput.value = Math.min(linearMax, Math.max(linearMin, initialLinearSpeed)).toFixed(2);
       angularInput.value = Math.min(angularMax, Math.max(angularMin, initialAngularSpeed)).toFixed(2);
 
@@ -299,7 +323,8 @@
             cur_x_left = 0.0;
             cur_y_left = 0.0;
           }
-          publishTwist();
+          publishTwist();  
+          startTwistBurst(); // ← ジョイスティックが動いたら再送信
         })
         .on('move', (evt, data) => {
           if (data.identifier === current_right) {
@@ -309,6 +334,7 @@
             cur_y_left = data.vector.y;
           }
           publishTwist();
+          startTwistBurst(); // ← ジョイスティックが動いたら再送信
         });
     }
   </script>
