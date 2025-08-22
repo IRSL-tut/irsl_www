@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Virtual Joy + Joint UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #joy_zone {
+      height: 60%;
+      width: 100%;
+      background: rgba(200, 200, 255, 0.1);
+      position: relative;
+    }
+
+    #speed-control {
+      padding: 10px;
+      background: #d0f0ff;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .speed-block {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    input[type="number"] {
+      font-size: 20px;
+      height: 60px;
+      width: 80px;
+    }
+
+    button {
+      height: 80px;
+      width: 100px;
+      font-size: 32px;
+      font-weight: bold;
+    }
+
+    #sliders {
+      height: 30%;
+      overflow-y: auto;
+      padding: 10px;
+      background: #f0f0f0;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      margin: 12px 0;
+    }
+
+    .slider-row label {
+      width: 80px;
+      text-align: right;
+      margin-right: 10px;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      height: 40px;
+    }
+
+    @media screen and (max-width: 600px) {
+      #speed-control {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      input[type="number"],
+      button {
+        width: 100%;
+        height: 50px;
+        font-size: 18px;
+      }
+
+      .slider-row label {
+        font-size: 14px;
+      }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+  <script src='../ros/rosmain.js'> </script>
+  <script src="nipplejs.js"></script>
+</head>
+
+<body>
+  <div id="joy_zone"></div>
+
+  <div id="speed-control">
+    <div class="speed-block">
+      <label for="speed-linear">直進：</label>
+      <input type="number" id="speed-linear">
+      <button id="dec-linear">−</button>
+      <button id="inc-linear">＋</button>
+    </div>
+
+    <div class="speed-block">
+      <label for="speed-angular">回転：</label>
+      <input type="number" id="speed-angular">
+      <button id="dec-angular">−</button>
+      <button id="inc-angular">＋</button>
+    </div>
+  </div>
+
+  <div id="sliders"></div>
+
+  <script type="module">
+    import config from './yellow_vehicle_config.js';
+
+    const {
+      jointNames,
+      twistTopicName,
+      jointTopicName,
+      sliderMin,
+      sliderMax,
+      sliderStep,
+      trajectoryDurationSecs,
+      linearStep,
+      linearMin,
+      linearMax,
+      angularStep,
+      angularMin,
+      angularMax,
+      initialLinearSpeed,
+      initialAngularSpeed
+    } = config;
+
+    let cur_x_left = 0.0, cur_y_left = 0.0, cur_x_right = 0.0;
+    let current_right = -1, current_left = -1;
+
+    // === ROS 初期化 ===
+    const ros = ros_start();
+
+    const twistTopic = new ROSLIB.Topic({
+      ros: ros,
+      name: twistTopicName,
+      messageType: "geometry_msgs/Twist"
+    });
+
+    const jointPublisher = new ROSLIB.Topic({
+      ros: ros,
+      name: jointTopicName,
+      messageType: "trajectory_msgs/JointTrajectory"
+    });
+
+    const sliderValues = new Array(jointNames.length).fill(0.0);
+
+    // === 初期化関数呼び出し ===
+    setupSliders();
+    setupSpeedControls();
+    setupJoystick();
+
+    let twistBurstTimer = null;
+    let twistBurstCount = 0;
+    const TWIST_BURST_MAX = 10;      // 送信する回数
+    const TWIST_BURST_INTERVAL = 100; // ms間隔（10Hz）
+
+    function startTwistBurst() {
+      // 既存のタイマーがあればクリア
+      if (twistBurstTimer) {
+        clearInterval(twistBurstTimer);
+      }
+
+      twistBurstCount = 0;
+
+      // タイマー開始
+      twistBurstTimer = setInterval(() => {
+        publishTwist();
+        twistBurstCount++;
+
+        if (twistBurstCount >= TWIST_BURST_MAX) {
+          clearInterval(twistBurstTimer);
+          twistBurstTimer = null;
+        }
+      }, TWIST_BURST_INTERVAL);
+    }
+
+    // === スライダーUIとイベントのセットアップ ===
+    function setupSliders() {
+      const slidersDiv = document.getElementById("sliders");
+
+      jointNames.forEach((name, i) => {
+        const row = document.createElement("div");
+        row.className = "slider-row";
+
+        const label = document.createElement("label");
+        label.innerText = `${name}: `;
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = sliderMin;
+        slider.max = sliderMax;
+        slider.step = sliderStep;
+        slider.value = "0.0";
+
+        slider.oninput = (e) => {
+          sliderValues[i] = parseFloat(e.target.value);
+          publishJointValues();
+        };
+
+        row.appendChild(label);
+        row.appendChild(slider);
+        slidersDiv.appendChild(row);
+      });
+    }
+
+    // === ジョイント指令の送信 ===
+    function publishJointValues() {
+      const msg = new ROSLIB.Message({
+        joint_names: jointNames,
+        points: [{
+          positions: sliderValues,
+          time_from_start: { secs: trajectoryDurationSecs, nsecs: 0 }
+        }]
+      });
+      jointPublisher.publish(msg);
+    }
+
+    // === スピード調整UIのセットアップ ===
+    function setupSpeedControls() {
+      const linearInput = document.getElementById("speed-linear");
+      const angularInput = document.getElementById("speed-angular");
+      
+      linearInput.min = linearMin;
+      linearInput.max = linearMax;
+      linearInput.step = linearStep;
+
+      angularInput.min = angularMin;
+      angularInput.max = angularMax;
+      angularInput.step = angularStep;
+
+      linearInput.value = Math.min(linearMax, Math.max(linearMin, initialLinearSpeed)).toFixed(2);
+      angularInput.value = Math.min(angularMax, Math.max(angularMin, initialAngularSpeed)).toFixed(2);
+
+      clampInput(linearInput, linearMin, linearMax);
+      clampInput(angularInput, angularMin, angularMax);
+
+      document.getElementById("inc-linear").onclick = () => {
+        adjustInputValue(linearInput, linearStep, linearMax);
+      };
+      document.getElementById("dec-linear").onclick = () => {
+        adjustInputValue(linearInput, -linearStep, linearMin);
+      };
+      document.getElementById("inc-angular").onclick = () => {
+        adjustInputValue(angularInput, angularStep, angularMax);
+      };
+      document.getElementById("dec-angular").onclick = () => {
+        adjustInputValue(angularInput, -angularStep, angularMin);
+      };
+    }
+
+    function clampInput(input, min, max) {
+      input.addEventListener("change", () => {
+        let val = parseFloat(input.value);
+        if (isNaN(val)) {
+          input.value = "0.00";
+          return;
+        }
+        input.value = Math.min(max, Math.max(min, val)).toFixed(2);
+      });
+    }
+
+    function adjustInputValue(input, delta, limit) {
+      let val = parseFloat(input.value) || 0;
+      let newVal = delta > 0 ? Math.min(limit, val + delta) : Math.max(limit, val + delta);
+      input.value = newVal.toFixed(2);
+    }
+
+    // === Twist（速度）メッセージ送信 ===
+    function publishTwist() {
+      const linearInput = document.getElementById("speed-linear");
+      const angularInput = document.getElementById("speed-angular");
+
+      let linear = Math.min(linearMax, Math.max(linearMin, parseFloat(linearInput.value) || 0.0));
+      let angular = Math.min(angularMax, Math.max(angularMin, parseFloat(angularInput.value) || 0.0));
+
+      // ジョイスティックの縦方向（前後）をx軸、横方向をy軸に使用
+      const twist = new ROSLIB.Message({
+        linear: { x: cur_y_left * linear, y: -cur_x_left * linear, z: 0.0 },
+        angular: { x: 0.0, y: 0.0, z: cur_x_right * angular }
+      });
+
+      twistTopic.publish(twist);
+    }
+
+    // === ジョイスティックのセットアップ ===
+    function setupJoystick() {
+      const half_width = window.innerWidth / 2;
+
+      nipplejs.create({
+        zone: document.getElementById('joy_zone'),
+        size: 160,
+        mode: 'dynamic',
+        multitouch: true,
+        color: 'blue'
+      })
+        .on('start', (evt, data) => {
+          if (data.position.x > half_width) {
+            current_right = data.identifier;
+          } else {
+            current_left = data.identifier;
+          }
+        })
+        .on('end', (evt, data) => {
+          if (data.identifier === current_right) {
+            current_right = -1;
+            cur_x_right = 0.0;
+          } else if (data.identifier === current_left) {
+            current_left = -1;
+            cur_x_left = 0.0;
+            cur_y_left = 0.0;
+          }
+          publishTwist();  
+          startTwistBurst(); // ← ジョイスティックが動いたら再送信
+        })
+        .on('move', (evt, data) => {
+          if (data.identifier === current_right) {
+            cur_x_right = data.vector.x;
+          } else if (data.identifier === current_left) {
+            cur_x_left = data.vector.x;
+            cur_y_left = data.vector.y;
+          }
+          publishTwist();
+          startTwistBurst(); // ← ジョイスティックが動いたら再送信
+        });
+    }
+  </script>
+</body>
+
+</html>
