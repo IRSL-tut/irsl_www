@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Image and VirtualJoy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+      html {
+          height: 100%;
+      }
+      body {
+          height: 100%;
+          margin: 0;
+      }
+      .layout {
+          width: 100%;
+          height: 100%;
+          display: grid;
+          grid-template-areas:
+              "header header"
+              "main main"
+              "button button"
+              "joy1 joy2"
+              "joy3 joy4";
+          grid-template-rows: auto minmax(0, 8fr) 1fr 5fr 1fr;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+      }
+      .header {
+          grid-area: header;
+          background: rgba(177, 177, 87, 0.1);
+      }
+      .main {
+          grid-area: main;
+          background: rgba(0, 0, 255, 0.1);
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+      }
+      .img-frame {
+          flex: 1 1 auto;
+          min-height: 0;
+      }
+      #rosimg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+      }
+      .button {
+          grid-area: button;
+          background: rgba(0, 0, 0, 0.05);
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          justify-content: center;
+          padding: 4px 8px;
+      }
+      .button button {
+          font-size: 16px;
+          padding: 6px 12px;
+      }
+      .joy {
+          position: relative;
+      }
+      .joy1 { grid-area: joy1; background: rgba(0, 200, 100, 0.12); }
+      .joy2 { grid-area: joy2; background: rgba(200, 0,   0, 0.12); }
+      .joy3 { grid-area: joy3; background: rgba(0, 140,  70, 0.12); }
+      .joy4 { grid-area: joy4; background: rgba(140, 0,   0, 0.12); }
+      .select{
+          font-size: 20px;
+      }
+      .my-toggle-button {
+          display: flex;
+          align-items: center;
+          position: relative;
+          width: 100px;
+          height: 50px;
+          border-radius: 50px;
+          box-sizing: content-box;
+          background-color: #ff8d8d33;
+          cursor: pointer;
+          transition: background-color .4s;
+      }
+      .my-toggle-button:has(:checked) {
+          background-color: #75bbff33;
+      }
+      .my-toggle-button::before {
+          position: absolute;
+          left: 5px;
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          background-color: #ff8d8d;
+          content: '';
+          transition: left .4s;
+      }
+      .my-toggle-button:has(:checked)::before {
+          left: 50px;
+          background-color: #75bbff;
+      }
+      .my-toggle-button::after {
+          position: absolute;
+          left: 26px;
+          transform: translateX(-50%);
+          color: #fff;
+          font-weight: 600;
+          font-size: .9em;
+          content: 'No';
+          transition: left .4s;
+      }
+      .my-toggle-button:has(:checked)::after {
+          left: 71px;
+          content: 'Yes';
+      }
+      .my-toggle-button input {
+          display: none;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+    <script src="../ros/rosmain.js"></script>
+    <script>
+      const ros = ros_start();
+    </script>
+    <script src="img.js"></script>
+    <script>
+      let joytopic = new ROSLIB.Topic({
+          ros : ros,
+          name : '/webjoy',
+          messageType : 'sensor_msgs/Joy', // ROS1
+          queue_size : 1,
+          queue_length : 1
+      });
+    </script>
+</head>
+<!-- https://qiita.com/shoichi4411/items/fcbe4b0fc2d98c72b55e -->
+<body>
+  <section class="layout" >
+    <!-- header -->
+    <div class="header" id="header-contents"> </div>
+    <!-- image -->
+    <div class="main" id="img-contents">
+      <!-- pulldown -->
+      <div class="select">Image:
+      <select class="select" name="image-name" id="img-select" >
+        <option value="camera0">camera0</option>
+        <option value="camera1">camera1</option>
+        <option value="camera2">camera2</option>
+      </select></div>
+      <div class="img-frame">
+        <img id="rosimg" src="" />
+      </div>
+    </div>
+    <!-- Button -->
+    <div class="button" id="button-contents">
+      <button type="button" id="btn1">Btn 1</button>
+      <button type="button" id="btn2">Btn 2</button>
+      <button type="button" id="btn3">Btn 3</button>
+      <button type="button" id="btn4">Btn 4</button>
+      <button type="button" id="btn5">Btn 5</button>
+      <label class="my-toggle-button" ><input type="checkbox" id="toggle1"> Tgl 1</label>
+      <label class="my-toggle-button" ><input type="checkbox" id="toggle2"> Tgl 2</label>
+      <label class="my-toggle-button" ><input type="checkbox" id="toggle3"> Tgl 3</label>
+    </div>
+    <!-- Joy -->
+    <div class="joy joy1" id="joy1"> </div>
+    <div class="joy joy2" id="joy2"> </div>
+    <div class="joy joy3" id="joy3"> </div>
+    <div class="joy joy4" id="joy4"> </div>
+  </section>
+  <!-- https://github.com/yoannmoinet/nipplejs -->
+  <script src="nipplejs.js"></script>
+  <script>
+    //// image select
+    let select = document.getElementById('img-select');
+    select.onchange = event => {
+        if (select.value == "camera0") {
+            ros_camera0_img_subscribe();
+        } else if (select.value == "camera1") {
+            ros_camera1_img_subscribe();
+        } else if (select.value == "camera2") {
+            ros_camera2_img_subscribe();
+        }
+    }
+    //// buttons
+    var flag_btn1 = 0;
+    var flag_btn2 = 0;
+    var flag_btn3 = 0;
+    var flag_btn4 = 0;
+    var flag_btn5 = 0;
+    var flag_tgl1 = 0;
+    var flag_tgl2 = 0;
+    var flag_tgl3 = 0;
+    ////
+    function publishJoy() {
+        var frame_str = "webjoy"
+        var axes = [cur_left_x, cur_left_y, cur_left_z,   cur_right_x, cur_right_y, cur_right_z]; // 4 x:1, y:0, yaw:2
+        var btn  = [flag_btn1, flag_btn2, flag_btn3, flag_btn4, flag_btn5,  flag_tgl1, flag_tgl2, flag_tgl3];
+        flag_btn1 = 0;
+        flag_btn2 = 0;
+        flag_btn3 = 0;
+        flag_btn4 = 0;
+        flag_btn5 = 0;
+        var msg = new ROSLIB.Message({
+            header: { frame_id: frame_str },
+            axes: axes,
+            buttons: btn
+        });
+        joytopic.publish(msg);
+    }
+    //// button-callbacks
+    const btn1 = document.getElementById('btn1');
+    btn1.addEventListener('click', () => {
+        //console.log('btn1 clicked');
+        flag_btn1 = 1;
+        publishJoy()
+    });
+    const btn2 = document.getElementById('btn2');
+    btn2.addEventListener('click', () => {
+        //console.log('btn2 clicked');
+        flag_btn2 = 1;
+        publishJoy()
+    });
+    const btn3 = document.getElementById('btn3');
+    btn3.addEventListener('click', () => {
+        //console.log('btn3 clicked');
+        flag_btn3 = 1;
+        publishJoy()
+    });
+    const btn4 = document.getElementById('btn4');
+    btn4.addEventListener('click', () => {
+        //console.log('btn4 clicked');
+        flag_btn4 = 1;
+        publishJoy()
+    });
+    const btn5 = document.getElementById('btn5');
+    btn5.addEventListener('click', () => {
+        //console.log('btn5 clicked');
+        flag_btn5 = 1;
+        publishJoy()
+    });
+    const toggle1 = document.getElementById('toggle1');
+    toggle1.addEventListener('change', () => {
+        flag_tgl1 = toggle1.checked ? 1 : 0;
+        publishJoy();
+    });
+    const toggle2 = document.getElementById('toggle2');
+    toggle2.addEventListener('change', () => {
+        flag_tgl2 = toggle2.checked ? 1 : 0;
+        publishJoy();
+    });
+    const toggle3 = document.getElementById('toggle3');
+    toggle3.addEventListener('change', () => {
+        flag_tgl3 = toggle3.checked ? 1 : 0;
+        publishJoy();
+    });
+    /// Virtual JOY ///
+    var cur_left_x  = 0.0;
+    var cur_left_y  = 0.0;
+    var cur_left_z  = 0.0;
+    var cur_right_x = 0.0;
+    var cur_right_y = 0.0;
+    var cur_right_z = 0.0;
+    var msg_updated = false;
+    var joy1 = nipplejs.create({
+        zone: document.getElementById('joy1'),
+        size: 120, // size???
+        mode: 'dynamic',
+        multitouch: false,
+        color: 'green'
+    });
+    var joy2 = nipplejs.create({
+        zone: document.getElementById('joy2'),
+        size: 120, // size???
+        mode: 'dynamic',
+        multitouch: false,
+        color: 'red'
+    });
+    var joy3 = nipplejs.create({
+        zone: document.getElementById('joy3'),
+        size: 120, // size???
+        mode: 'dynamic',
+        multitouch: false,
+        color: 'green'
+    });
+    var joy4 = nipplejs.create({
+        zone: document.getElementById('joy4'),
+        size: 120, // size???
+        mode: 'dynamic',
+        multitouch: false,
+        color: 'red'
+    });
+    //// joy-callbacks
+    joy1.on('added', function(evt, data) {
+        //console.log('joy1: added');
+    }).on('start', function(evt, data) {
+        //console.log('joy1: start ' + data.id + ' / ' + data.identifier + ' | (' + data.position.x + ', ' + data.position.y + ')');
+        //console.log(data);
+    }).on('end', function(evt, data) {
+        //console.log('joy1: end ' + data.id + ' / ' + data.identifier);
+        msg_updated = false;
+        cur_left_x = 0.0;
+        cur_left_y = 0.0;
+        publishJoy();
+    }).on('move', function(evt, data) {
+        //console.log ('joy1: move [' + data.identifier + '] (' + data.vector.x + ', ' + data.vector.y + ')');
+        msg_updated = true;
+        cur_left_x =  data.vector.y;
+        cur_left_y = -data.vector.x;
+    });
+    joy2.on('added', function(evt, data) {
+        //console.log('added');
+    }).on('start', function(evt, data) {
+        //console.log('start ' + data.id + ' / ' + data.identifier + ' | (' + data.position.x + ', ' + data.position.y + ')');
+        //console.log(data);
+    }).on('end', function(evt, data) {
+        //console.log('joy2: end ' + data.id + ' / ' + data.identifier);
+        msg_updated = false;
+        cur_right_x = 0.0;
+        cur_right_y = 0.0;
+        publishJoy();
+    }).on('move', function(evt, data) {
+        //console.log ('joy2: move [' + data.identifier + '] (' + data.vector.x + ', ' + data.vector.y + ')');
+        msg_updated = true;
+        cur_right_x =  data.vector.y;
+        cur_right_y = -data.vector.x;
+    });
+    joy3.on('added', function(evt, data) {
+        //console.log('added');
+    }).on('start', function(evt, data) {
+        //console.log('start ' + data.id + ' / ' + data.identifier + ' | (' + data.position.x + ', ' + data.position.y + ')');
+        //console.log(data);
+    }).on('end', function(evt, data) {
+        //console.log('joy3: end ' + data.id + ' / ' + data.identifier);
+        msg_updated = false;
+        cur_left_z = 0.0;
+        publishJoy();
+    }).on('move', function(evt, data) {
+        msg_updated = true;
+        console.log ('joy3: move [' + data.identifier + '] (' + data.vector.x + ', ' + data.vector.y + ')');
+        cur_left_z = data.vector.x;
+    });
+    joy4.on('added', function(evt, data) {
+        //console.log('added');
+    }).on('start', function(evt, data) {
+        //console.log('start ' + data.id + ' / ' + data.identifier + ' | (' + data.position.x + ', ' + data.position.y + ')');
+        //console.log(data);
+    }).on('end', function(evt, data) {
+        //console.log('joy4: end ' + data.id + ' / ' + data.identifier);
+        msg_updated = false;
+        cur_right_z = 0.0;
+        publishJoy();
+    }).on('move', function(evt, data) {
+        //console.log ('joy4: move [' + data.identifier + '] (' + data.vector.x + ', ' + data.vector.y + ')');
+        msg_updated = true;
+        cur_right_z = data.vector.x;
+    });
+    ////
+    setInterval(function() {
+        if (msg_updated) {
+            publishJoy();
+        }
+    }, 50);
+  </script>
+</body>
+</html>
