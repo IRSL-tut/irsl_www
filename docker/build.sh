@@ -63,5 +63,5 @@ if   [ "${_TAG}" == "noetic" ]; then
 docker build . --pull -f Dockerfile.apache_rosbridge --build-arg BASE_IMAGE=ros:noetic-ros-base -t ${_REPO}apache_rosbridge:noetic ; )
 elif [ "${_TAG}" == "one"    ]; then
 (cd ${abs_dir}; \
-docker build . --pull -f Dockerfile.apache_rosbridge --build-arg BASE_IMAGE=${_REPO}irsl_base:one_opengl -t ${_REPO}apache_rosbridge:one ; )
+docker build . --pull -f Dockerfile.apache_rosbridge --build-arg BASE_IMAGE=${_REPO}irsl_base:opengl_24.04_one -t ${_REPO}apache_rosbridge:one ; )
 fi
