@@ -1,5 +1,5 @@
 ##
-## docker build . -f Dockerfile.apache_rosbridge apache_rosbridge:noetic
+## docker build . -f Dockerfile.apache_rosbridge apache_rosbridge:24.04_one
 ##
 ARG BASE_IMAGE=ros:noetic-ros-base
 FROM ${BASE_IMAGE}

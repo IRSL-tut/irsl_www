@@ -7,12 +7,12 @@
 # ROS_MASTER_URI ## pass to rosbridge
 # ROS_HOSTNAME ## pass to rosbridge
 # REPO (default: repo.irsl.eiiris.tut.ac.jp/)
-# SUFFIX (default: noetic)
+# SUFFIX (default: 24.04_one)
 # ROOT_DIR (default: $PWD)
 version: "3.0"
 services:
   webserver:
-    image: ${REPO:-repo.irsl.eiiris.tut.ac.jp/}apache_rosbridge:${SUFFIX:-noetic}
+    image: ${REPO:-repo.irsl.eiiris.tut.ac.jp/}apache_rosbridge:${SUFFIX:-24.04_one}
     # ipc: host
     security_opt:
       - seccomp:unconfined
@@ -27,7 +27,7 @@ services:
       - "${ROOT_DIR:-$PWD}/userdir:/runshell"
       - "${ROOT_DIR:-$PWD}/../html:/var/www/html"
   rosbridge:
-    image: ${REPO:-repo.irsl.eiiris.tut.ac.jp/}apache_rosbridge:${SUFFIX:-noetic}
+    image: ${REPO:-repo.irsl.eiiris.tut.ac.jp/}apache_rosbridge:${SUFFIX:-24.04_one}
     security_opt:
       - seccomp:unconfined
     ports:
