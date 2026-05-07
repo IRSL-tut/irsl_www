@@ -7,7 +7,7 @@
 version: "3.0"
 services:
   webserver:
-    image: apache_rosbridge_win:noetic
+    image: apache_rosbridge_win:24.04_one
     # ipc: host
     security_opt:
       - seccomp:unconfined
@@ -16,7 +16,7 @@ services:
       - "443:443"
     command: [ "/runshell/run_apache.sh", "${WEB_HOSTNAME:-0.0.0.0}" ]
   rosbridge:
-    image: apache_rosbridge_win:noetic
+    image: apache_rosbridge_win:24.04_one
     security_opt:
       - seccomp:unconfined
     ports:

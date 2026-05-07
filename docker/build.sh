@@ -5,7 +5,7 @@ abs_dir=$(dirname "$(readlink -f "$0")")
 _COMMON_NAME="eiiris.tut.ac.jp"
 
 _REPO="repo.irsl.eiiris.tut.ac.jp/"
-_TAG="noetic"
+_TAG="24.04_one"
 _KEYS=""
 
 while [[ $# -gt 0 ]]; do
@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --common-name COMMON_NAME   Set the common name for SSL certificate generation (default: eiiris.tut.ac.jp)."
             echo "  --repo REPO                 Specify the Docker repository (default: repo.irsl.eiiris.tut.ac.jp/)."
-            echo "  --tag TAG                   Specify the Docker image tag (default: noetic)."
+            echo "  --tag TAG                   Specify the Docker image tag (default: 24.04_one)."
             echo "  --just-keys                 Only generate SSL keys and exit."
             exit 0
             ;;
@@ -61,7 +61,7 @@ fi
 if   [ "${_TAG}" == "noetic" ]; then
 (cd ${abs_dir}; \
 docker build . --pull -f Dockerfile.apache_rosbridge --build-arg BASE_IMAGE=ros:noetic-ros-base -t ${_REPO}apache_rosbridge:noetic ; )
-elif [ "${_TAG}" == "one"    ]; then
+elif [ "${_TAG}" == "24.04_one"    ]; then
 (cd ${abs_dir}; \
-docker build . --pull -f Dockerfile.apache_rosbridge --build-arg BASE_IMAGE=${_REPO}irsl_base:opengl_24.04_one -t ${_REPO}apache_rosbridge:one ; )
+docker build . --pull -f Dockerfile.apache_rosbridge --build-arg BASE_IMAGE=${_REPO}irsl_base:opengl_24.04_one -t ${_REPO}apache_rosbridge:24.04_one ; )
 fi

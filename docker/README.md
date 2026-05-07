@@ -135,7 +135,7 @@ sed -i -e 's@\$\$HOSTNAME\$\$@simserver.irsl.eiiris.tut.ac.jp@g' sites-available
 
 ### dockerのビルド
 ``` bash
-docker build . -f Dockerfile.apache_rosbridge apache_rosbridge:noetic
+./build.sh
 ```
 
 ### 立ち上げコマンド
